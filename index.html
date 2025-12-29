@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Koku</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React & ReactDOM UMD CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- Babel untuk JSX di browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide-react/dist/umd/lucide-react.min.js"></script>
+</head>
+<body class="bg-slate-50">
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+    const { Download, Trash2, FileText, Camera } = lucideReact;
+
+    const App = () => {
+      const [formData, setFormData] = useState({
+        jenisLaporan: 'LAPORAN AKTIVITI BADAN BERUNIFORM',
+        perjumpaanKali: '',
+        tarikh: '',
+        hari: '',
+        masa: '',
+        tempat: '',
+        guruHadir: Array(8).fill(''),
+        hadirLelaki: '',
+        totalLelaki: '',
+        hadirPerempuan: '',
+        totalPerempuan: '',
+        nilaiSivik: '',
+        aktivitiDijalankan: '',
+        refleksiImpak: '',
+        disediakanOleh: '',
+        jawatanDisediakan: 'GURU PENASIHAT',
+        disemakOleh: 'WAN MOHD SABRI BIN WAN HASSAN',
+        jawatanDisemak: 'PENYELARAS BADAN BERUNIFORM',
+        disahkanOleh: 'MOHAMAD BIN ALI',
+        jawatanDisahkan: 'PK KOKURIKULUM'
+      });
+
+      const [images, setImages] = useState([null, null]);
+      const [isGenerating, setIsGenerating] = useState(false);
+      const [libStatus, setLibStatus] = useState({ jspdf: false, autotable: false });
+
+      const schoolLogoUrl = "https://i.postimg.cc/bw5gx6Qd/LOGO_SESDI_removebg_preview.png";
+
+      const nilaiSivikOptions = [
+        "TANGGUNGJAWAB",
+        "KASIH SAYANG",
+        "HORMAT-MENGHORMATI",
+        "KEBAHAGIAAN"
+      ];
+
+      const jenisLaporanOptions = [
+        "LAPORAN AKTIVITI BADAN BERUNIFORM",
+        "LAPORAN AKTIVITI KELAB DAN PERSATUAN",
+        "LAPORAN AKTIVITI SUKAN DAN PERMAINAN",
+        "LAPORAN AKTIVITI RUMAH SUKAN"
+      ];
+
+      const masaOptions = [
+        "1.00 PM - 3.00 PM",
+        "1.30 PM - 3.30 PM",
+        "1.45 PM - 3.45 PM",
+        "2.00 PM - 4.00 PM",
+        "2.30 PM - 4.30 PM",
+        "3.00 PM - 5.00 PM",
+        "5.00 PM - 6.00 PM",
+        "8.00 AM - 10.00 AM",
+        "10.00 AM - 12.00 PM"
+      ];
+
+      const formatDateDisplay = (dateString) => {
+        if (!dateString) return '-';
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
+      };
+
+      const getMalayDay = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const days = ["AHAD", "ISNIN", "SELASA", "RABU", "KHAMIS", "JUMAAT", "SABTU"];
+        return days[date.getDay()];
+      };
+
+      const mapPenyelarasData = (jenis) => {
+        switch (jenis) {
+          case "LAPORAN AKTIVITI BADAN BERUNIFORM": 
+            return { nama: "WAN MOHD SABRI BIN WAN HASSAN", jawatan: "PENYELARAS BADAN BERUNIFORM" };
+          case "LAPORAN AKTIVITI KELAB DAN PERSATUAN": 
+            return { nama: "NOR AMIRAH BINTI ABDUL HAMID", jawatan: "PENYELARAS KELAB DAN PERSATUAN" };
+          case "LAPORAN AKTIVITI SUKAN DAN PERMAINAN": 
+            return { nama: "AZHAR BIN AHMAD", jawatan: "PENYELARAS SUKAN DAN PERMAINAN" };
+          case "LAPORAN AKTIVITI RUMAH SUKAN": 
+            return { nama: "IBRAHIM BIN MOHD ZIN", jawatan: "PENYELARAS RUMAH SUKAN" };
+          default: 
+            return { nama: "", jawatan: "PENYELARAS KOKURIKULUM" };
+        }
+      };
+
+      const totals = useMemo(() => {
+        const hL = parseInt(formData.hadirLelaki) || 0;
+        const hP = parseInt(formData.hadirPerempuan) || 0;
+        const tL = parseInt(formData.totalLelaki) || 0;
+        const tP = parseInt(formData.totalPerempuan) || 0;
+        return {
+          lelaki: `${hL}/${tL}`,
+          perempuan: `${hP}/${tP}`,
+          jumlah: `${hL + hP}/${tL + tP}`
+        };
+      }, [formData]);
+
+      const guruAktif = useMemo(() => {
+        return formData.guruHadir.filter(name => name.trim() !== "");
+      }, [formData.guruHadir]);
+
+      useEffect(() => {
+        const jsPdfScript = document.createElement('script');
+        jsPdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        jsPdfScript.async = true;
+        jsPdfScript.onload = () => {
+          setLibStatus(prev => ({ ...prev, jspdf: true }));
+          const autoTableScript = document.createElement('script');
+          autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js';
+          autoTableScript.async = true;
+          autoTableScript.onload = () => {
+            setLibStatus(prev => ({ ...prev, autotable: true }));
+          };
+          document.body.appendChild(autoTableScript);
+        };
+        document.body.appendChild(jsPdfScript);
+      }, []);
+
+      const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        if (name === 'jenisLaporan') {
+          const dataPenyelaras = mapPenyelarasData(value);
+          setFormData(prev => ({ 
+            ...prev, 
+            [name]: value, 
+            disemakOleh: dataPenyelaras.nama,
+            jawatanDisemak: dataPenyelaras.jawatan 
+          }));
+        } else if (name === 'tarikh') {
+          setFormData(prev => ({ ...prev, [name]: value, hari: getMalayDay(value) }));
+        } else {
+          setFormData(prev => ({ ...prev, [name]: value }));
+        }
+      };
+
+      const getBase64FromUrl = async (url) => {
+        try {
+          const data = await fetch(url);
+          const blob = await data.blob();
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(blob); 
+            reader.onloadend = () => resolve(reader.result);
+          });
+        } catch (e) { return null; }
+      };
+
+      const generatePDF = async () => {
+        if (!libStatus.jspdf || !libStatus.autotable) return;
+        setIsGenerating(true);
+
+        try {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const margin = 15;
+          let y = 8;
+
+          const logo = await getBase64FromUrl(schoolLogoUrl);
+          if (logo) {
+            doc.addImage(logo, 'PNG', (pageWidth/2)-8, y, 16, 16);
+            y += 20;
+          }
+
+          doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(30, 58, 138);
+          doc.text(formData.jenisLaporan, pageWidth/2, y, { align: 'center' });
+          y += 4; 
+          
+          doc.setDrawColor(30, 58, 138).setLineWidth(0.5).line(margin, y, pageWidth-margin, y);
+          y += 1;
+          doc.setLineWidth(0.15).line(margin, y, pageWidth-margin, y);
+          y += 6;
+
+          doc.setFontSize(8.5).setTextColor(0, 0, 0);
+          const drawInfo = (label, val, x, yPos, labelW = 30) => {
+            doc.setFont("helvetica", "bold").text(label, x, yPos);
+            doc.text(":", x + labelW, yPos);
+            doc.setFont("helvetica", "normal").text(val || '-', x + labelW + 3, yPos);
+          };
+
+          drawInfo("PERJUMPAAN KALI", formData.perjumpaanKali, margin, y);
+          y += 5;
+          drawInfo("TARIKH", formatDateDisplay(formData.tarikh), margin, y);
+          drawInfo("HARI", formData.hari, margin + 100, y, 15);
+          y += 5;
+          drawInfo("MASA", formData.masa, margin, y);
+          drawInfo("TEMPAT", formData.tempat, margin + 100, y, 15);
+          y += 7;
+
+          doc.autoTable({
+            startY: y,
+            head: [['Bil.', 'Nama Guru Penasihat', 'Tandatangan']],
+            body: guruAktif.length > 0 ? guruAktif.map((n, i) => [i+1, n.toUpperCase(), '']) : [['-', 'TIADA MAKLUMAT', '']],
+            margin: { left: margin, right: margin },
+            theme: 'grid',
+            headStyles: { fillColor: [30, 58, 138], fontSize: 7.5, halign: 'center', textColor: 255 },
+            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [200, 200, 200] },
+            columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 2: { cellWidth: 35 } }
+          });
+          y = doc.lastAutoTable.finalY + 6;
+
+          doc.setFont("helvetica", "bold").setFontSize(8).setTextColor(30, 58, 138);
+          doc.text("KEHADIRAN MURID:", margin, y);
+          y += 3;
+
+          const frameW = (pageWidth - (margin * 2) - 10) / 3;
+          const frameH = 12;
+
+          const drawFrame = (title, val, x) => {
+            doc.setDrawColor(30, 58, 138).setLineWidth(0.2).setFillColor(245, 247, 255);
+            doc.roundedRect(x, y, frameW, frameH, 1, 1, 'FD');
+            doc.setFont("helvetica", "bold").setFontSize(6.5).setTextColor(100, 100, 100);
+            doc.text(title, x + (frameW/2), y + 4, { align: 'center' });
+            doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(30, 58, 138);
+            doc.text(val, x + (frameW/2), y + 9.5, { align: 'center' });
+          };
+
+          drawFrame("LELAKI", totals.lelaki, margin);
+          drawFrame("PEREMPUAN", totals.perempuan, margin + frameW + 5);
+          drawFrame("JUMLAH", totals.jumlah, margin + (frameW + 5) * 2);
+
+          // NOTE: Untuk ringkas, bahagian preview & signature boleh terus pakai React JSX
+          // Jika nak, saya boleh sambung buatkan penuh.
+
+          // Untuk contoh ni, kita simpan PDF sahaja
+          doc.save(`Laporan_Koku_${formData.tarikh || 'Baru'}.pdf`);
+        } catch (e) { console.error(e); } finally { setIsGenerating(false); }
+      };
+
+      return (
+        <div className="min-h-screen py-10 px-4 flex flex-col items-center font-sans text-slate-900">
+          <h1 className="text-xl font-bold mb-4">React Laporan Koku</h1>
+          <input type="text" placeholder="Nama" onChange={e => setFormData(prev => ({...prev, disediakanOleh: e.target.value}))} className="p-2 border rounded mb-2" />
+          <button onClick={generatePDF} disabled={isGenerating || !libStatus.jspdf} className="p-2 bg-blue-700 text-white rounded">
+            {isGenerating ? 'MENGUPAS DATA...' : 'JANAKAN PDF'}
+          </button>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+</body>
+</html>
